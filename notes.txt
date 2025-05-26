@@ -1,0 +1,9 @@
+NOTES:
+
+mqtt.py is the mqtt broker to handle requests sent to the server and pass them onto the individual devices (pi zero).
+this runs on http://192.168.0.205:5001
+
+app.py is the main flask web app that users can connect to to update settings.
+this runs on http://192.168.0.205:5000
+
+the main.db is a shared database used to hold user information and device information.
