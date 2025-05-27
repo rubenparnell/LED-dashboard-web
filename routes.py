@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, session
 from flask_login import login_user, login_required, logout_user, current_user
 import requests
 import json
@@ -88,7 +88,13 @@ def login():
             flash('Invalid credentials', 'danger')
             return redirect(url_for('main.login'))
         login_user(user)
-        return redirect(url_for('main.home'))
+
+        # Handle session-stored board linking
+        if session.get('pending_board_id'):
+            return redirect(url_for('main.process_device_link'))
+        
+        next_page = request.args.get('next')
+        return redirect(next_page or url_for('main.home'))
     return render_template('login.html')
 
 @main.route('/logout')
@@ -123,6 +129,40 @@ def link_device():
 
     return render_template('link_device.html')
 
+
+@main.route('/addBoard/<board_id>')
+def new_device_link(board_id):
+    session['pending_board_id'] = board_id
+    if current_user.is_authenticated:
+        return redirect(url_for('main.process_device_link'))
+    else:
+        # Redirect to login, after login they will be redirected back to process_device_link
+        return redirect(url_for('main.login', next=url_for('main.process_device_link')))
+
+
+@main.route('/process-device-link')
+@login_required
+def process_device_link():
+    board_id = session.pop('pending_board_id', None)
+    if not board_id:
+        flash('No pending device to link.', 'warning')
+        return redirect(url_for('main.link_device'))
+
+    device = Device.query.filter_by(board_id=board_id).first()
+    if not device:
+        flash('Device not found.', 'danger')
+        return redirect(url_for('main.link_device'))
+
+    existing_link = UserDeviceLink.query.filter_by(user_id=current_user.id, device_id=device.id).first()
+    if existing_link:
+        flash('This device is already linked to your account.', 'info')
+    else:
+        new_link = UserDeviceLink(user_id=current_user.id, device_id=device.id)
+        db.session.add(new_link)
+        db.session.commit()
+        flash('Device linked successfully!', 'success')
+
+    return redirect(url_for('main.home'))
 
 
 @main.route('/update_settings', methods=['GET', 'POST'])
