@@ -4,6 +4,7 @@ import requests
 import json
 import os
 import paho.mqtt.publish as publish
+import ssl
 from models import User, Device, UserDeviceLink
 from models import db
 
@@ -143,6 +144,9 @@ def update_settings():
                 auth={
                     'username': MQTT_USERNAME,
                     'password': MQTT_PWD
+                },
+                tls={
+                    'tls_version': ssl.PROTOCOL_TLSv1_2
                 }
             )
 
