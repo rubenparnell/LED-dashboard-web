@@ -1,7 +1,18 @@
+{% extends "base.html" %}
 
-  <h2>Link a Device</h2>
-  <form method="POST">
-    <label for="board_id">Enter Board ID</label>
-    <input type="text" name="board_id" required>
-    <button type="submit">Link Device</button>
-  </form>
+{% block title %}Link a Device{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6 col-lg-4">
+        <h1 class="mb-4">Link a Board</h1>
+        <form method="POST">
+            <div class="mb-3">
+                <label for="board_id" class="form-label">Enter Board ID</label>
+                <input type="text" class="form-control" id="board_id" name="board_id" required>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Link Board</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,17 +1,12 @@
-<!doctype html>
-<html>
-<head><title>Dashboard</title></head>
-<body>
-  <h1>Dashboard</h1>
-  <p>Welcome, {{ current_user.email }}! <a href="{{ url_for('main.logout') }}">Logout</a></p>
+{% extends "base.html" %}
 
-  <p><a href="{{ url_for('main.link_device') }}">Link a device</a></p>
-  <p><a href="{{ url_for('main.update_settings') }}">Update Settings</a></p>
+{% block title %}Dashboard{% endblock %}
 
-  {% with messages = get_flashed_messages() %}
-    {% if messages %}
-      <ul>{% for message in messages %}<li>{{ message }}</li>{% endfor %}</ul>
+{% block content %}
+    <h1 class="mb-4">Dashboard</h1>
+    
+    {% if devices | length == 0 %}
+        <h4>You have no dashboards linked to your account.</h4>
     {% endif %}
-  {% endwith %}
-</body>
-</html>
+
+{% endblock %}

@@ -42,21 +42,34 @@ def convertStationCode(code):
 # Routes
 @main.route('/')
 def home():
-    return render_template('home.html')
+    if current_user.is_authenticated:
+        devices = db.session.query(UserDeviceLink).filter_by(user_id=current_user.id).all()
+        user_devices = [device.device for device in devices]
+
+        return render_template('dashboard.html', devices=user_devices)
+    else:
+        return render_template('home.html')
+
 
 @main.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
         email = request.form['email']
         password = request.form['password']
+        password2 = request.form['password2']
         if User.query.filter_by(email=email).first():
-            flash('Email address already exists')
+            flash('Email address already exists', 'danger')
             return redirect(url_for('main.register'))
+        
+        if password != password2:
+            flash('The passwords entered do not match!', 'danger')
+            return redirect(url_for('main.register'))
+        
         user = User(email=email)
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
-        flash('Registration successful. Please log in.')
+        flash('Registration successful. Please log in.', 'success')
         return redirect(url_for('main.login'))
     return render_template('register.html')
 
@@ -67,10 +80,10 @@ def login():
         password = request.form['password']
         user = User.query.filter_by(email=email).first()
         if not user or not user.check_password(password):
-            flash('Invalid credentials')
+            flash('Invalid credentials', 'danger')
             return redirect(url_for('main.login'))
         login_user(user)
-        return redirect(url_for('main.dashboard'))
+        return redirect(url_for('main.home'))
     return render_template('login.html')
 
 @main.route('/logout')
@@ -79,13 +92,6 @@ def logout():
     logout_user()
     return redirect(url_for('main.home'))
 
-@main.route('/dashboard')
-@login_required
-def dashboard():
-    devices = db.session.query(UserDeviceLink).filter_by(user_id=current_user.id).all()
-    user_devices = [device.device for device in devices]
-
-    return render_template('dashboard.html', devices=user_devices)
 
 @main.route('/link-device', methods=['GET', 'POST'])
 @login_required
@@ -98,11 +104,17 @@ def link_device():
         if not device:
             flash('Device not found.', 'danger')
         else:
+            currentDevices = UserDeviceLink.query.filter_by(user_id=current_user.id, device_id=device.id).all()
+
+            if len(currentDevices) > 0:
+                flash('You have already linked that board to your account!', 'danger')
+                return redirect(url_for('main.link_device'))
+            
             new_link = UserDeviceLink(user_id=current_user.id, device_id=device.id)
             db.session.add(new_link)
             db.session.commit()
             flash('Device linked successfully.', 'success')
-            return redirect(url_for('main.dashboard'))
+            return redirect(url_for('main.link_device'))
 
     return render_template('link_device.html')
 
