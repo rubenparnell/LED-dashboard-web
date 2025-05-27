@@ -3,13 +3,16 @@ from flask_login import login_user, login_required, logout_user, current_user
 import requests
 import json
 import os
+import paho.mqtt.publish as publish
 from models import User, Device, UserDeviceLink
 from models import db
 
 main = Blueprint('main', __name__)
 
-PI5_API_URL = os.getenv("PI5_API_URL")
-PI5_API_KEY = os.getenv("PI5_API_KEY")
+MQTT_BROKER = os.getenv('MQTT_BROKER')
+MQTT_PORT = int(os.getenv('MQTT_PORT', 1883))
+MQTT_USERNAME = os.getenv('MQTT_USERNAME')
+MQTT_PWD = os.getenv('MQTT_PWD')
 
 # Fetch station names
 stations = json.loads(requests.get("https://metro-rti.nexus.org.uk/api/stations").text)
@@ -33,17 +36,6 @@ def load_settings(board_id):
 
 def convertStationCode(code):
     return stations.get(code, "Unknown")
-
-def send_settings_to_board(board_id, api_key, settings):
-    response = requests.post(
-        'http://82.33.197.252:5001/api/update_settings',
-        json={
-            'board_id': board_id,
-            'api_key': api_key,
-            'settings': settings
-        }
-    )
-    return response.status_code == 200
 
 
 # Routes
@@ -129,8 +121,6 @@ def update_settings():
 
         device = db.session.query(Device).filter_by(board_id=board_id).first()
 
-        api_key = device.api_key
-
         settings = {
             "station1": station1,
             "platform1": platform1,
@@ -141,15 +131,28 @@ def update_settings():
             "forecast_hours": forecast_hours 
         }
 
-        success = send_settings_to_board(board_id, api_key, settings)
-        if success:
-            flash('Settings sent successfully!', 'success')
+        topic = f"boards/{board_id}/settings"
+        payload = json.dumps(settings)
 
-            # save settings in database
+        try:
+            publish.single(
+                topic,
+                payload,
+                hostname=MQTT_BROKER,
+                port=MQTT_PORT,
+                auth={
+                    'username': MQTT_USERNAME,
+                    'password': MQTT_PWD
+                }
+            )
+
             device.settings = settings
             db.session.commit()
-        else:
+
+            flash('Settings sent successfully!', 'success')
+        except Exception as e:
             flash('Failed to send settings.', 'danger')
+
         return redirect('/update_settings')
     
     boardSettings = {}
