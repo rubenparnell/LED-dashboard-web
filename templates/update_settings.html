@@ -5,66 +5,73 @@
 {% block content %}
     <h1 class="mb-4">Board Settings</h1>
 
-    {% with messages = get_flashed_messages() %}
-        {% if messages %}
-            <ul>{% for message in messages %}<li>{{ message }}</li>{% endfor %}</ul>
-        {% endif %}
-    {% endwith %}
-
     {% if boardSettings | length == 0 %}
         <h4>You have no dashboards linked to your account.</h4>
     {% endif %}
     {% for id, settings in boardSettings.items() %}
     <h4>Board {{id}}:</h4>
         <form method="POST" class="row g-3 mb-4">
-            <!-- Station 1 -->
-            <div class="col-md-6">
-                <label for="station1" class="form-label">Station 1</label>
-                <select class="form-select" name="station1" id="station1" required>
-                    {% for code, name in stations.items() %}
-                        <option value="{{ code }}" {% if code == settings.station1_code %}selected{% endif %}>{{ name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-6">
-                <label for="platform1" class="form-label">Platform 1</label>
-                <input type="text" class="form-control" name="platform1" id="platform1" value="{{ settings.platform1 }}" required>
-            </div>
+            {% if boards[id].size == "large" %}
+                <!-- Station 1 -->
+                <div class="col-md-6">
+                    <label for="station1" class="form-label">Station 1</label>
+                    <select class="form-select" name="station1" id="station1" required>
+                        {% for code, name in stations.items() %}
+                            <option value="{{ code }}" {% if code == settings.station1_code %}selected{% endif %}>{{ name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="platform1" class="form-label">Platform 1</label>
+                    <input type="text" class="form-control" name="platform1" id="platform1" value="{{ settings.platform1 }}" required>
+                </div>
 
-            <!-- Station 2 -->
-            <div class="col-md-6">
-                <label for="station2" class="form-label">Station 2</label>
-                <select class="form-select" name="station2" id="station2" required>
-                    {% for code, name in stations.items() %}
-                        <option value="{{ code }}" {% if code == settings.station2_code %}selected{% endif %}>{{ name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-6">
-                <label for="platform2" class="form-label">Platform 2</label>
-                <input type="text" class="form-control" name="platform2" id="platform2" value="{{ settings.platform2 }}" required>
-            </div>
+                <!-- Station 2 -->
+                <div class="col-md-6">
+                    <label for="station2" class="form-label">Station 2</label>
+                    <select class="form-select" name="station2" id="station2" required>
+                        {% for code, name in stations.items() %}
+                            <option value="{{ code }}" {% if code == settings.station2_code %}selected{% endif %}>{{ name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="platform2" class="form-label">Platform 2</label>
+                    <input type="text" class="form-control" name="platform2" id="platform2" value="{{ settings.platform2 }}" required>
+                </div>
 
-            <!-- Latitude -->
-            <div class="col-md-6">
-                <label for="lat" class="form-label">Latitude</label>
-                <input type="number" step="any" class="form-control" name="lat" id="lat" value="{{ settings.lat }}" required>
-            </div>
+                <!-- Latitude -->
+                <div class="col-md-6">
+                    <label for="lat" class="form-label">Latitude</label>
+                    <input type="number" step="any" class="form-control" name="lat" id="lat" value="{{ settings.lat }}" required>
+                </div>
 
-            <!-- Longitude -->
-            <div class="col-md-6">
-                <label for="lon" class="form-label">Longitude</label>
-                <input type="number" step="any" class="form-control" name="lon" id="lon" value="{{ settings.lon }}" required>
-            </div>
+                <!-- Longitude -->
+                <div class="col-md-6">
+                    <label for="lon" class="form-label">Longitude</label>
+                    <input type="number" step="any" class="form-control" name="lon" id="lon" value="{{ settings.lon }}" required>
+                </div>
 
-            <!-- Forecast Hours -->
-            <div class="col-12">
-                <label for="forecast_hours" class="form-label">Forecast Hours (comma separated)</label>
-                <input type="text" class="form-control" name="forecast_hours" id="forecast_hours" value="{{ settings.forecast_hours }}" placeholder="e.g. 9,12,15,18" required>
-            </div>
+                <!-- Forecast Hours -->
+                <div class="col-12">
+                    <label for="forecast_hours" class="form-label">Forecast Hours (comma separated)</label>
+                    <input type="text" class="form-control" name="forecast_hours" id="forecast_hours" value="{{ settings.forecast_hours }}" placeholder="e.g. 9,12,15,18" required>
+                </div>
+            {% elif boards[id].size == "small" %}
+                <!-- Station -->
+                <div class="col-md-12">
+                    <label for="station" class="form-label">Station</label>
+                    <select class="form-select" name="station" id="station" required>
+                        {% for code, name in stations.items() %}
+                            <option value="{{ code }}" {% if code == settings.station_code %}selected{% endif %}>{{ name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            {% endif %}
 
-            <!-- Hidden field for board id -->
+            <!-- Hidden field for board id and size -->
             <input type="hidden" name="board_id" value="{{ id }}">
+            <input type="hidden" name="size" value="{{ boards[id].size }}">
 
             <!-- Submit button -->
             <div class="col-12">

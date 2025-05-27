@@ -19,8 +19,8 @@ class Device(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     board_id = db.Column(db.String(64), unique=True, nullable=False)
     api_key = db.Column(db.String(128), unique=True, nullable=False)
-    last_seen = db.Column(db.DateTime)
     settings = db.Column(db.JSON)
+    size = db.Column(db.String(12))
 
 class UserDeviceLink(db.Model):
     id = db.Column(db.Integer, primary_key=True)

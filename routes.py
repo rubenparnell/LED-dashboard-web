@@ -20,19 +20,24 @@ stations = json.loads(requests.get("https://metro-rti.nexus.org.uk/api/stations"
 
 # utils
 def load_settings(board_id):
-    settings = db.session.query(Device.settings).filter_by(board_id=board_id).first()
-    if settings[0] != None:
-        return settings[0]
+    settings, size = db.session.query(Device.settings, Device.size).filter_by(board_id=board_id).first()
+    if settings != None:
+        return settings
     else:
-        return {
-            "station1": "TYN",
-            "platform1": "1",
-            "station2": "TYN",
-            "platform2": "2",
-            "lat": 0.0,
-            "lon": 0.0,
-            "forecast_hours": [9, 12, 15, 18]
-        }
+        if size == "large":
+            return {
+                "station1": "TYN",
+                "platform1": "1",
+                "station2": "TYN",
+                "platform2": "2",
+                "lat": 0.0,
+                "lon": 0.0,
+                "forecast_hours": [9, 12, 15, 18]
+            }
+        elif size == "small":
+            return {
+                "station": "TYN"
+            }
 
 
 def convertStationCode(code):
@@ -123,26 +128,35 @@ def link_device():
 @main.route('/update_settings', methods=['GET', 'POST'])
 def update_settings():
     if request.method == 'POST':
-        station1 = request.form['station1']
-        platform1 = request.form['platform1']
-        station2 = request.form['station2']
-        platform2 = request.form['platform2']
-        lat = request.form.get('lat', 0)
-        lon = request.form.get('lon', 0)
-        forecast_hours = request.form.get('forecast_hours', "9,12,15,18").split(",")
         board_id = request.form.get('board_id')
-
         device = db.session.query(Device).filter_by(board_id=board_id).first()
+        size = request.form.get('size')
 
-        settings = {
-            "station1": station1,
-            "platform1": platform1,
-            "station2": station2,
-            "platform2": platform2,
-            "lat": lat,
-            "lon": lon,
-            "forecast_hours": forecast_hours 
-        }
+        if size == "large":
+            station1 = request.form['station1']
+            platform1 = request.form['platform1']
+            station2 = request.form['station2']
+            platform2 = request.form['platform2']
+            lat = request.form.get('lat', 0)
+            lon = request.form.get('lon', 0)
+            forecast_hours = request.form.get('forecast_hours', "9,12,15,18").split(",")
+
+            settings = {
+                "station1": station1,
+                "platform1": platform1,
+                "station2": station2,
+                "platform2": platform2,
+                "lat": lat,
+                "lon": lon,
+                "forecast_hours": forecast_hours 
+            }
+
+        elif size == "small":
+            station = request.form['station']
+
+            settings = {
+                "station": station
+            }
 
         topic = f"boards/{board_id}/settings"
         payload = json.dumps(settings)
@@ -171,7 +185,9 @@ def update_settings():
 
         return redirect('/update_settings')
     
+    # Get Request:
     boardSettings = {}
+    boards = {}
 
     devices = db.session.query(UserDeviceLink).filter_by(user_id=current_user.id).all()
 
@@ -179,31 +195,42 @@ def update_settings():
         board_id = device.device.board_id
         settings = load_settings(board_id)
 
-        # Convert station codes to names for pre-filled form values
-        station1_name = convertStationCode(settings["station1"])
-        station2_name = convertStationCode(settings["station2"])
+        if device.device.size == "large":
+            # Convert station codes to names for pre-filled form values
+            station1_name = convertStationCode(settings["station1"])
+            station2_name = convertStationCode(settings["station2"])
 
-        # Convert forecast hours list to comma-separated string for form input
-        forecast_hours_str = ",".join(str(h) for h in settings.get("forecast_hours", []))
+            # Convert forecast hours list to comma-separated string for form input
+            forecast_hours_str = ",".join(str(h) for h in settings.get("forecast_hours", []))
 
-        boardSettings[board_id] = {
-            "station1": station1_name,
-            "station1_code": settings["station1"],
-            "platform1": settings["platform1"],
-            "station2": station2_name,
-            "station2_code": settings["station2"],
-            "platform2": settings["platform2"],
-            "lat": settings["lat"],
-            "lon": settings["lon"],
-            "forecast_hours": forecast_hours_str
-        }
-    
+            boardSettings[board_id] = {
+                "station1": station1_name,
+                "station1_code": settings["station1"],
+                "platform1": settings["platform1"],
+                "station2": station2_name,
+                "station2_code": settings["station2"],
+                "platform2": settings["platform2"],
+                "lat": settings["lat"],
+                "lon": settings["lon"],
+                "forecast_hours": forecast_hours_str
+            }
 
+        elif device.device.size == "small":
+            # Convert station codes to names for pre-filled form values
+            station_name = convertStationCode(settings["station"])
+
+            boardSettings[board_id] = {
+                "station": station_name,
+                "station_code": settings["station"]
+            }
+
+        boards[board_id] = device.device
 
     return render_template(
         'update_settings.html',
         stations=stations,
         boardSettings=boardSettings,
+        boards=boards,
         )
 
 
