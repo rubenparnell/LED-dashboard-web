@@ -164,6 +164,20 @@ def delete_message(message_id):
         flash("You cannot delete this message.", "danger")
         return redirect(url_for("main.messages"))
 
+    payload = {"delete":message_id}
+    publish.single(
+        f"boards/{msg.board_id}/message",
+        json.dumps(payload),
+        hostname=MQTT_BROKER,
+        port=MQTT_PORT,
+        auth={
+            'username': MQTT_USERNAME,
+            'password': MQTT_PWD
+        },
+        tls={
+            'tls_version': ssl.PROTOCOL_TLSv1_2
+        }
+    )
     db.session.delete(msg)
     db.session.commit()
     flash("Message deleted.")
