@@ -7,8 +7,10 @@ import paho.mqtt.publish as publish
 import ssl
 from models import User, Device, UserDeviceLink
 from models import db
+from incoming_mqtt_handler import start_website_mqtt_listener, last_response
 
 main = Blueprint('main', __name__)
+start_website_mqtt_listener()
 
 MQTT_BROKER = os.getenv('MQTT_BROKER')
 MQTT_PORT = int(os.getenv('MQTT_PORT', 1883))
@@ -293,3 +295,11 @@ def api_register_device():
     db.session.commit()
 
     return jsonify({"message": "Device registered"}), 200
+
+
+@main.route('/status')
+def device_status():
+    if last_response:
+        return f"Last response: {last_response}"
+    else:
+        return "No response received yet"
