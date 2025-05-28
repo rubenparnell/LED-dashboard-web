@@ -7,6 +7,8 @@
     
     {% if devices | length == 0 %}
         <h4>You have no dashboards linked to your account.</h4>
+    {% else %}
+        You have {{ devices | length }} boards linked to your account.
     {% endif %}
 
 {% endblock %}

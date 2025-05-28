@@ -46,6 +46,9 @@
             <a class="nav-link {% if request.endpoint == 'main.home' %}active{% endif %}" href="{{ url_for('main.home') }}">Home</a>
         </li>
         <li class="nav-item">
+            <a class="nav-link {% if request.endpoint == 'main.messages' %}active{% endif %}" href="{{ url_for('main.messages') }}">Messages</a>
+        </li>
+        <li class="nav-item">
             <a class="nav-link {% if request.endpoint == 'main.update_settings' %}active{% endif %}" href="{{ url_for('main.update_settings') }}">Settings</a>
         </li>
         <li class="nav-item">

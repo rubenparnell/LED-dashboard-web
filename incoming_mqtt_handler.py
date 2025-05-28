@@ -3,30 +3,31 @@ import ssl
 import json
 import os
 
+class SharedState:
+    board_mode = {}
+
+shared_state = SharedState()
+
 MQTT_BROKER = os.getenv("MQTT_BROKER")
 MQTT_PORT = int(os.getenv("MQTT_PORT"))
 MQTT_USERNAME = os.getenv("MQTT_USERNAME")
-MQTT_PASSWORD = os.getenv("MQTT_PASSWORD")
+MQTT_PWD = os.getenv("MQTT_PWD")
 BOARD_ID = os.getenv("BOARD_ID")
-
-last_response = None  # Store for Flask access
 
 def on_connect(client, userdata, flags, rc):
     print("Website MQTT client connected with result code", rc)
     client.subscribe("#")
 
 def on_message(client, userdata, msg):
-    global last_response
-    try:
+    if msg.topic.startswith("board") and msg.topic.endswith("status"):
+        board_id = msg.topic.split("/")[1]
         payload = json.loads(msg.payload.decode())
-        print(f"Response from device: {payload}")
-        last_response = payload  # Save to variable or DB/log as needed
-    except Exception as e:
-        print("Failed to parse response:", e)
+        shared_state.board_mode[board_id] = payload['mode']
+
 
 def start_website_mqtt_listener():
     client = mqtt.Client()
-    client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
+    client.username_pw_set(MQTT_USERNAME, MQTT_PWD)
     client.tls_set(tls_version=ssl.PROTOCOL_TLSv1_2)
     client.on_connect = on_connect
     client.on_message = on_message

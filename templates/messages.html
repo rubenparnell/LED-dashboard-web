@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Messages{% endblock %}
+
+{% block content %}
+    <h2 class="mb-4">Messages by Board</h2>
+
+    <!-- Message Form -->
+    <form method="POST" action="{{ url_for('main.messages') }}">
+        <div class="row g-2 align-items-center mb-4">
+            <div class="col-md-4">
+                <select name="board_id" class="form-select" required>
+                    <option value="" disabled selected required>Select Device</option>
+                    {% for device in devices %}
+                        <option value="{{ device.board_id }}">{{ device.name ~ ' Board' if device.name else 'Board ' ~ device.board_id }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6">
+                <input type="text" name="message" class="form-control" placeholder="Type a message..." required autofocus>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">Send</button>
+            </div>
+        </div>
+    </form>
+
+    <!-- Messages by Device -->
+    {% for device, messages in messages_by_device.items() %}
+    <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><strong>{{ device.name ~ ' Board' if device.name else 'Board ' ~ device.board_id }}</strong></span>
+            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#device-{{ device.id }}">
+                Toggle Messages
+            </button>
+        </div>
+        <div class="collapse show" id="device-{{ device.id }}">
+            <ul class="list-group list-group-flush">
+                {% if messages %}
+                    {% for message in messages %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                {{ message.message }}
+                                <small class="text-muted d-block">By {{ message.user.email }}</small>
+                            </div>
+                            {% if message.user_id == current_user.id %}
+                            <form method="POST" action="{{ url_for('main.delete_message', message_id=message.id) }}" onsubmit="return confirm('Delete this message?');">
+                                <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                            </form>
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                {% else %}
+                    <li class="list-group-item text-muted">No messages for this device.</li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+    const messageInput = document.querySelector('input[name="message"]');
+    const deviceSelect = document.querySelector('select[name="device_id"]');
+
+    messageInput.addEventListener("keypress", function (e) {
+        if (e.key === "Enter") {
+            e.preventDefault();
+
+            // Check if a device is selected
+            if (!deviceSelect.value) {
+                alert("Please select a device before sending a message.");
+                deviceSelect.focus();
+                return;
+            }
+
+            // Submit the form
+            this.form.submit();
+        }
+    });
+</script>
+{% endblock %}

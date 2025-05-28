@@ -5,9 +5,9 @@ import json
 import os
 import paho.mqtt.publish as publish
 import ssl
-from models import User, Device, UserDeviceLink
+from models import User, Device, UserDeviceLink, Message
 from models import db
-from incoming_mqtt_handler import start_website_mqtt_listener, last_response
+from incoming_mqtt_handler import start_website_mqtt_listener, shared_state
 
 main = Blueprint('main', __name__)
 start_website_mqtt_listener()
@@ -51,7 +51,14 @@ def convertStationCode(code):
 def home():
     if current_user.is_authenticated:
         devices = db.session.query(UserDeviceLink).filter_by(user_id=current_user.id).all()
-        user_devices = [device.device for device in devices]
+        user_devices = {}
+        for device in devices:
+            print(device.device.board_id)
+            user_device = device.device
+            mode = shared_state.board_mode.get(device.device.board_id)
+            user_devices[device.device.id] = mode
+
+        print(shared_state.board_mode)
 
         return render_template('dashboard.html', devices=user_devices)
     else:
@@ -104,6 +111,69 @@ def login():
 def logout():
     logout_user()
     return redirect(url_for('main.home'))
+
+
+@main.route('/messages', methods=["GET", "POST"])
+@login_required
+def messages():
+    if request.method == "POST":
+        board_id = request.form.get("board_id")
+        message = request.form.get("message")
+        if message:
+            payload = {
+                "message":message
+            }
+            publish.single(
+                f"boards/{board_id}/message",
+                json.dumps(payload),
+                hostname=MQTT_BROKER,
+                port=MQTT_PORT,
+                auth={
+                    'username': MQTT_USERNAME,
+                    'password': MQTT_PWD
+                },
+                tls={
+                    'tls_version': ssl.PROTOCOL_TLSv1_2
+                }
+            )
+
+            msg = Message(user_id=current_user.id, board_id=board_id, message=message)
+            db.session.add(msg)
+            db.session.commit()
+            flash("Message added.", "success")
+        return redirect(url_for("main.messages"))
+
+    # Get all device links for current user
+    links = UserDeviceLink.query.filter_by(user_id=current_user.id).all()
+    devices = [link.device for link in links]
+
+    # Get messages for each linked device
+    messages_by_device = {}
+    for device in devices:
+        messages = Message.query.filter_by(board_id=device.board_id).order_by(Message.id.desc()).all()
+        messages_by_device[device] = messages
+
+    return render_template("messages.html", messages_by_device=messages_by_device, devices=devices)
+
+
+@main.route("/messages/delete/<int:message_id>", methods=["POST"])
+@login_required
+def delete_message(message_id):
+    msg = Message.query.get_or_404(message_id)
+    if msg.user_id != current_user.id:
+        flash("You cannot delete this message.", "danger")
+        return redirect(url_for("main.messages"))
+
+    db.session.delete(msg)
+    db.session.commit()
+    flash("Message deleted.")
+    return redirect(url_for("main.messages"))
+
+
+@main.route("/get_messages/<board_id>")
+def get_messages(board_id):
+    messages = Message.query.filter_by(board_id=board_id).all()
+    return jsonify({"messages": [{"text": message.message, "user_id": message.user_id} for message in messages]})
 
 
 @main.route('/link-device', methods=['GET', 'POST'])
@@ -173,6 +243,9 @@ def update_settings():
         board_id = request.form.get('board_id')
         device = db.session.query(Device).filter_by(board_id=board_id).first()
         size = request.form.get('size')
+        board_name = request.form.get('board_name')
+        device.name = board_name
+        db.session.commit()
 
         if size == "large":
             station1 = request.form['station1']
@@ -190,14 +263,16 @@ def update_settings():
                 "platform2": platform2,
                 "lat": lat,
                 "lon": lon,
-                "forecast_hours": forecast_hours 
+                "forecast_hours": forecast_hours,
+                "board_name": device.name
             }
 
         elif size == "small":
             station = request.form['station']
 
             settings = {
-                "station": station
+                "station": station,
+                "board_name": device.name
             }
 
         topic = f"boards/{board_id}/settings"
@@ -254,7 +329,8 @@ def update_settings():
                 "platform2": settings["platform2"],
                 "lat": settings["lat"],
                 "lon": settings["lon"],
-                "forecast_hours": forecast_hours_str
+                "forecast_hours": forecast_hours_str,
+                "board_name": device.device.name
             }
 
         elif device.device.size == "small":
@@ -263,7 +339,8 @@ def update_settings():
 
             boardSettings[board_id] = {
                 "station": station_name,
-                "station_code": settings["station"]
+                "station_code": settings["station"],
+                "board_name": device.device.name
             }
 
         boards[board_id] = device.device
@@ -299,7 +376,8 @@ def api_register_device():
 
 @main.route('/status')
 def device_status():
-    if last_response:
-        return f"Last response: {last_response}"
+    print(shared_state.board_mode)
+    if shared_state.board_mode:
+        return f"Last response: {shared_state.board_mode}"
     else:
         return "No response received yet"

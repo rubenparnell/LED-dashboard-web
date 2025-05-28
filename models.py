@@ -21,6 +21,7 @@ class Device(db.Model):
     api_key = db.Column(db.String(128), unique=True, nullable=False)
     settings = db.Column(db.JSON)
     size = db.Column(db.String(12))
+    name = db.Column(db.String(128))
 
 class UserDeviceLink(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -28,3 +29,11 @@ class UserDeviceLink(db.Model):
     device_id = db.Column(db.Integer, db.ForeignKey('device.id'), nullable=False)
     user = db.relationship('User', backref='user_device_links')
     device = db.relationship('Device', backref='user_device_links')
+
+class Message(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    board_id = db.Column(db.String(64), db.ForeignKey('device.board_id'), nullable=False)
+    message = db.Column(db.Text)
+    user = db.relationship('User', backref='user_message')
+    device = db.relationship('Device', backref='user_message')
