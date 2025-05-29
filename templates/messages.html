@@ -5,10 +5,27 @@
 {% block content %}
     <h2 class="mb-4">Messages by Board</h2>
 
+    <form method="POST" action="{{ url_for('main.messages') }}" class="mb-4">
+        <input type="hidden" name="form_name" value="colour_form">
+        <div class="row g-2 align-items-center my-3">
+            <div class="col-auto">
+                <label for="userColour" class="form-label mb-0 me-2"><strong>Select your colour:</strong></label>
+            </div>
+            <div class="col-auto">
+                <input type="color" id="userColour" name="userColour" value="{{ current_user.colour }}" class="form-control form-control-color" title="Choose your colour">
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary">Update Colour</button>
+            </div>
+        </div>
+    </form>
+
     <!-- Message Form -->
     <form method="POST" action="{{ url_for('main.messages') }}">
-        <div class="row g-2 align-items-center mb-4">
-            <div class="col-md-4">
+        <input type="hidden" name="form_name" value="message_form">
+        <div class="row g-2 align-items-center mb-4 border rounded p-3">
+            <h5 class="p-0 m-0 mb-2">New Message</h5>
+            <div class="col-md-4 m-0">
                 <select name="board_id" class="form-select" required>
                     <option value="" disabled selected required>Select Device</option>
                     {% for device in devices %}
@@ -16,10 +33,10 @@
                     {% endfor %}
                 </select>
             </div>
-            <div class="col-md-6">
+            <div class="col-md-6 m-0">
                 <input type="text" name="message" class="form-control" placeholder="Type a message..." required autofocus>
             </div>
-            <div class="col-md-2">
+            <div class="col-md-2 m-0">
                 <button type="submit" class="btn btn-primary w-100">Send</button>
             </div>
         </div>
@@ -38,10 +55,12 @@
             <ul class="list-group list-group-flush">
                 {% if messages %}
                     {% for message in messages %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <li class="list-group-item d-flex justify-content-between align-items-center" style="background-color: {{ message.user.colour }}; color: {{ message.text_bg }} !important;">
                             <div>
                                 {{ message.message }}
-                                <small class="text-muted d-block">By {{ message.user.email }}</small>
+                                <small class="d-block">
+                                    By {{ message.user.email }}
+                                </small>
                             </div>
                             {% if message.user_id == current_user.id %}
                             <form method="POST" action="{{ url_for('main.delete_message', message_id=message.id) }}" onsubmit="return confirm('Delete this message?');">

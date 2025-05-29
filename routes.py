@@ -5,6 +5,7 @@ import json
 import os
 import paho.mqtt.publish as publish
 import ssl
+import random
 from models import User, Device, UserDeviceLink, Message
 from models import db
 from incoming_mqtt_handler import start_website_mqtt_listener, shared_state
@@ -46,6 +47,15 @@ def convertStationCode(code):
     return stations.get(code, "Unknown")
 
 
+def get_contrast_background(hex_colour):
+    hex_colour = hex_colour.lstrip("#")
+    r, g, b = tuple(int(hex_colour[i:i+2], 16) for i in (0, 2, 4))
+    brightness = (r * 299 + g * 587 + b * 114) / 1000  # Per W3C standard
+
+    # Light text? Use dark background. Dark text? Use light background.
+    return "#000000" if brightness > 128 else "#ffffff"
+
+
 # Routes
 @main.route('/')
 def home():
@@ -53,12 +63,8 @@ def home():
         devices = db.session.query(UserDeviceLink).filter_by(user_id=current_user.id).all()
         user_devices = {}
         for device in devices:
-            print(device.device.board_id)
-            user_device = device.device
             mode = shared_state.board_mode.get(device.device.board_id)
             user_devices[device.device.id] = mode
-
-        print(shared_state.board_mode)
 
         return render_template('dashboard.html', devices=user_devices)
     else:
@@ -79,7 +85,7 @@ def register():
             flash('The passwords entered do not match!', 'danger')
             return redirect(url_for('main.register'))
         
-        user = User(email=email)
+        user = User(email=email, colour="#{:06x}".format(random.randint(0, 0xFFFFFF)))
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
@@ -117,30 +123,58 @@ def logout():
 @login_required
 def messages():
     if request.method == "POST":
-        board_id = request.form.get("board_id")
-        message = request.form.get("message")
-        if message:
-            payload = {
-                "message":message
-            }
-            publish.single(
-                f"boards/{board_id}/message",
-                json.dumps(payload),
-                hostname=MQTT_BROKER,
-                port=MQTT_PORT,
-                auth={
-                    'username': MQTT_USERNAME,
-                    'password': MQTT_PWD
-                },
-                tls={
-                    'tls_version': ssl.PROTOCOL_TLSv1_2
-                }
-            )
+        form_name = request.form.get("form_name")
 
-            msg = Message(user_id=current_user.id, board_id=board_id, message=message)
-            db.session.add(msg)
+        if form_name == "colour_form":
+            userColour = request.form.get("userColour")
+
+            # get user board links
+            userBoards = UserDeviceLink.query.filter_by(user_id=current_user.id).all()
+            for board in userBoards:
+                publish.single(
+                    f"boards/{board.device.board_id}/message",
+                    "colour updated",
+                    hostname=MQTT_BROKER,
+                    port=MQTT_PORT,
+                    auth={
+                        'username': MQTT_USERNAME,
+                        'password': MQTT_PWD
+                    },
+                    tls={
+                        'tls_version': ssl.PROTOCOL_TLSv1_2
+                    }
+                )
+
+            current_user.colour = userColour
             db.session.commit()
-            flash("Message added.", "success")
+            flash("Colour Updated.", "success")
+
+        elif form_name == "message_form":
+            board_id = request.form.get("board_id")
+            message = request.form.get("message")
+            if message:
+                payload = {
+                    "message":message
+                }
+                publish.single(
+                    f"boards/{board_id}/message",
+                    json.dumps(payload),
+                    hostname=MQTT_BROKER,
+                    port=MQTT_PORT,
+                    auth={
+                        'username': MQTT_USERNAME,
+                        'password': MQTT_PWD
+                    },
+                    tls={
+                        'tls_version': ssl.PROTOCOL_TLSv1_2
+                    }
+                )
+
+                msg = Message(user_id=current_user.id, board_id=board_id, message=message)
+                db.session.add(msg)
+                db.session.commit()
+                flash("Message added.", "success")
+
         return redirect(url_for("main.messages"))
 
     # Get all device links for current user
@@ -151,6 +185,9 @@ def messages():
     messages_by_device = {}
     for device in devices:
         messages = Message.query.filter_by(board_id=device.board_id).order_by(Message.id.desc()).all()
+        for message in messages:
+            user_colour = message.user.colour
+            message.text_bg = get_contrast_background(user_colour)
         messages_by_device[device] = messages
 
     return render_template("messages.html", messages_by_device=messages_by_device, devices=devices)
@@ -180,14 +217,14 @@ def delete_message(message_id):
     )
     db.session.delete(msg)
     db.session.commit()
-    flash("Message deleted.")
+    flash("Message deleted.", "success")
     return redirect(url_for("main.messages"))
 
 
 @main.route("/get_messages/<board_id>")
 def get_messages(board_id):
     messages = Message.query.filter_by(board_id=board_id).all()
-    return jsonify({"messages": [{"text": message.message, "user_id": message.user_id} for message in messages]})
+    return jsonify({"messages": [{"text": message.message, "colour": message.user.colour} for message in messages]})
 
 
 @main.route('/link-device', methods=['GET', 'POST'])
@@ -386,12 +423,3 @@ def api_register_device():
     db.session.commit()
 
     return jsonify({"message": "Device registered"}), 200
-
-
-@main.route('/status')
-def device_status():
-    print(shared_state.board_mode)
-    if shared_state.board_mode:
-        return f"Last response: {shared_state.board_mode}"
-    else:
-        return "No response received yet"
