@@ -12,7 +12,6 @@ MQTT_BROKER = os.getenv("MQTT_BROKER")
 MQTT_PORT = int(os.getenv("MQTT_PORT"))
 MQTT_USERNAME = os.getenv("MQTT_USERNAME")
 MQTT_PWD = os.getenv("MQTT_PWD")
-BOARD_ID = os.getenv("BOARD_ID")
 
 def on_connect(client, userdata, flags, rc):
     print("Website MQTT client connected with result code", rc)
